@@ -22,7 +22,8 @@ export default async function AdminLayout({
 
   return (
     <div className="flex min-h-screen flex-col lg:flex-row">
-      <aside className="flex flex-col border-b border-line bg-surface lg:h-screen lg:w-60 lg:flex-none lg:border-r lg:border-b-0">
+      {/* Sticky so long pages (the QR sheet) scroll the content, not the nav. */}
+      <aside className="flex flex-col border-b border-line bg-chrome lg:sticky lg:top-0 lg:h-screen lg:w-60 lg:flex-none lg:self-start lg:overflow-y-auto lg:border-r lg:border-b-0">
         <div className="flex items-center justify-between px-5 py-4 lg:block">
           <div>
             <p className="text-[0.9375rem] font-semibold tracking-tight text-ink">

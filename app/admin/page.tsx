@@ -2,16 +2,11 @@ import { connection } from "next/server";
 import { daySummary, supabaseDayStatuses } from "@/lib/attendance";
 import { supabaseAdmin } from "@/lib/supabase";
 import { formatDate, todayInJakarta } from "@/lib/time";
-import type { Panitia, Status } from "@/lib/types";
+import type { Panitia } from "@/lib/types";
+import { PendingList } from "./pending-list";
 
 // These routes read live attendance rows, so they block instead of prerendering.
 export const instant = false;
-
-const STATUS_LABEL: Record<Status, string> = {
-  hadir: "Hadir",
-  izin: "Izin",
-  alfa: "Alfa",
-};
 
 export default async function DashboardPage() {
   // "Today" is per-request, so this route renders at request time.
@@ -30,18 +25,11 @@ export default async function DashboardPage() {
     .filter((member) => statuses.get(member.id) !== "hadir")
     .map((member) => ({ ...member, status: statuses.get(member.id) ?? null }));
 
-  const byDivision = new Map<string, typeof pending>();
-  for (const member of pending) {
-    const list = byDivision.get(member.divisi) ?? [];
-    list.push(member);
-    byDivision.set(member.divisi, list);
-  }
-
   return (
     <div className="flex flex-col gap-8">
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="text-[1.75rem] font-semibold tracking-tight text-ink">
+          <h1 className="text-balance text-[1.75rem] font-semibold tracking-tight text-ink">
             Today&apos;s attendance
           </h1>
           <p className="mt-1 text-[0.875rem] text-ink-muted">{formatDate(date)}</p>
@@ -59,52 +47,13 @@ export default async function DashboardPage() {
       </dl>
 
       <section>
-        <div className="mb-3 flex items-baseline justify-between gap-4">
-          <h2 className="text-[1.0625rem] font-semibold tracking-tight text-ink">
+        <div className="mb-3">
+          <h2 className="text-balance text-[1.0625rem] font-semibold tracking-tight text-ink">
             Not yet checked in
           </h2>
-          <p className="text-[0.8125rem] text-ink-faint">
-            {pending.length} of {summary.total}
-          </p>
         </div>
 
-        {pending.length === 0 ? (
-          <p className="panel px-5 py-8 text-center text-[0.875rem] text-ink-muted">
-            Everyone is accounted for.
-          </p>
-        ) : (
-          <div className="flex flex-col gap-6">
-            {[...byDivision.entries()].map(([divisi, members]) => (
-              <div key={divisi}>
-                <h3 className="mb-2 text-[0.75rem] font-semibold uppercase tracking-[0.05em] text-ink-faint">
-                  {divisi}
-                </h3>
-                <ul className="panel divide-y divide-line overflow-hidden">
-                  {members.map((member) => (
-                    <li
-                      key={member.id}
-                      className="flex items-center justify-between gap-4 px-4 py-2.5"
-                    >
-                      <span className="min-w-0 truncate text-[0.875rem] font-medium text-ink">
-                        {member.nama}
-                      </span>
-                      <span
-                        className={`chip ${
-                          member.status === "izin"
-                            ? "chip-izin"
-                            : member.status === "alfa"
-                              ? "chip-alfa"
-                              : "chip-belum"
-                        }`}
-                      >
-                        {member.status ? STATUS_LABEL[member.status] : "Belum"}                      </span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ))}
-          </div>
-        )}
+        <PendingList members={pending} total={summary.total} />
       </section>
     </div>
   );

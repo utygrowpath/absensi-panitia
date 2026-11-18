@@ -3,6 +3,9 @@
 @theme {
   --color-surface: #ffffff;
   --color-surface-muted: #fafafa;
+  /* Chrome layer for the sidebar: a touch cooler and darker than the page so
+     white content panels read as the work surface. */
+  --color-chrome: #f4f4f5;
   --color-ink: #18181b;
   --color-ink-muted: #52525b;
   --color-ink-faint: #71717a;
@@ -51,6 +54,34 @@
 
   table {
     font-variant-numeric: tabular-nums;
+  }
+
+  /* Browser surfaces carry the design too: tint the scrollbar to the palette
+     instead of shipping the platform default. */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-line-strong) transparent;
+  }
+
+  ::-webkit-scrollbar {
+    width: 0.625rem;
+    height: 0.625rem;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: var(--color-line-strong);
+    border-radius: 9999px;
+    border: 0.1875rem solid transparent;
+    background-clip: padding-box;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: #a1a1aa;
+    background-clip: padding-box;
   }
 }
 
@@ -238,23 +269,16 @@
   }
 
   .nav-link:hover {
-    background: var(--color-surface-muted);
+    background: var(--color-surface);
     color: var(--color-ink);
   }
 
-  .nav-link-active {
-    background: var(--color-surface-muted);
+  .nav-link-active,
+  .nav-link-active:hover {
+    background: var(--color-surface);
     color: var(--color-ink);
     font-weight: 600;
-  }
-
-  .nav-link-active::before {
-    content: "";
-    width: 0.25rem;
-    height: 0.25rem;
-    border-radius: 9999px;
-    background: var(--color-ink);
-    flex: none;
+    box-shadow: 0 1px 2px rgb(0 0 0 / 0.05);
   }
 
   .th {
