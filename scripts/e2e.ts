@@ -5,6 +5,8 @@
  */
 export {};
 
+import { todayInJakarta } from "../lib/time";
+
 const BASE = process.env.E2E_BASE_URL ?? "http://localhost:3000";
 const SECRET = process.env.SUPABASE_SECRET_KEY!;
 const SUPABASE = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -166,20 +168,25 @@ async function main() {
 
   // --- 4. manual status change -------------------------------------------
   const setStatusId = await actionId("setAttendanceStatus");
+  // The app works in Asia/Jakarta, so a UTC date string here would target a
+  // different day and write a second record instead of updating the first.
+  const today = todayInJakarta();
   const manual = await callAction(
     setStatusId,
     [
       form({
         panitiaId: person.id,
         status: "izin",
-        date: new Date().toISOString().slice(0, 10),
+        date: today,
       }),
     ],
     cookie,
     "/admin/manual",
   );
   const after = (
-    await (await rest(`attendance?panitia_id=eq.${person.id}&select=status`)).json()
+    await (
+      await rest(`attendance?panitia_id=eq.${person.id}&attendance_date=eq.${today}&select=status`)
+    ).json()
   )[0];
   record(
     "manual check-in flips status to izin",
