@@ -3,6 +3,8 @@
  * encodeReply so the request body matches what a browser sends.
  * Run with: npx tsx --env-file=.env.local scripts/e2e.ts
  */
+export {};
+
 const BASE = process.env.E2E_BASE_URL ?? "http://localhost:3000";
 const SECRET = process.env.SUPABASE_SECRET_KEY!;
 const SUPABASE = process.env.NEXT_PUBLIC_SUPABASE_URL!;
