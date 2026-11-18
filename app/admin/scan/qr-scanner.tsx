@@ -1,7 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { describeCameraError } from "@/lib/camera-error";
+import { DECODE_WIDTH, computeScanGeometry, type ScanGeometry } from "@/lib/scan-geometry";
 
 type Props = {
   onToken: (token: string) => void;
@@ -50,6 +51,7 @@ function stopQuietly(scanner: Scanner | null) {
  * library reads `window` at import time.
  */
 export default function QrScanner({ onToken, disabled }: Props) {
+  const panelRef = useRef<HTMLDivElement>(null);
   const hostRef = useRef<HTMLDivElement>(null);
   const scannerRef = useRef<Scanner | null>(null);
   const onTokenRef = useRef(onToken);
@@ -58,10 +60,40 @@ export default function QrScanner({ onToken, disabled }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [starting, setStarting] = useState(true);
   const [active, setActive] = useState(false);
+  const [geom, setGeom] = useState<ScanGeometry>({
+    scale: 1,
+    height: null,
+    minHeight: "",
+  });
 
   useEffect(() => {
     onTokenRef.current = onToken;
   }, [onToken]);
+
+  // The decode surface stays at DECODE_WIDTH and is scaled to fit, so the
+  // canvas matches the camera stream instead of the much smaller CSS width.
+  useLayoutEffect(() => {
+    const panel = panelRef.current;
+    const host = hostRef.current;
+    if (!panel || !host) return;
+
+    const measure = () => {
+      const next = computeScanGeometry(DECODE_WIDTH, panel.clientWidth, host.clientHeight);
+      setGeom((prev) =>
+        prev.scale === next.scale &&
+        prev.height === next.height &&
+        prev.minHeight === next.minHeight
+          ? prev
+          : next,
+      );
+    };
+
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(panel);
+    observer.observe(host);
+    return () => observer.disconnect();
+  }, []);
 
   const startCamera = useCallback(async () => {
     cancelledRef.current = false;
@@ -152,8 +184,20 @@ export default function QrScanner({ onToken, disabled }: Props) {
   }, [startCamera]);
 
   return (
-    <div className="relative flex min-h-64 w-full items-center justify-center overflow-hidden bg-ink">
-      <div id="qr-reader" ref={hostRef} className="w-full" />
+    <div
+      ref={panelRef}
+      className="relative min-h-64 w-full overflow-hidden bg-ink"
+      style={{
+        height: geom.height ?? undefined,
+        minHeight: geom.minHeight || undefined,
+      }}
+    >
+      <div
+        id="qr-reader"
+        ref={hostRef}
+        className="origin-top-left"
+        style={{ width: DECODE_WIDTH, transform: `scale(${geom.scale})` }}
+      />
 
       {starting && !error ? (
         <p className="absolute inset-0 flex items-center justify-center px-6 text-center text-[0.8125rem] text-surface">
