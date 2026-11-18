@@ -335,6 +335,36 @@
     background: #27272a;
   }
 
+  /* Tap-to-focus marker. Sized and offset in JS so it lands on the tap, and
+     animated once from an already-visible state. */
+  .focus-reticle {
+    position: absolute;
+    width: 4.5rem;
+    height: 4.5rem;
+    /* Centre the box on the tap coordinate. */
+    margin: -2.25rem 0 0 -2.25rem;
+    border: 2px solid rgb(255 255 255 / 0.9);
+    border-radius: 9999px;
+    animation: focus-pulse 700ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
+
+  @keyframes focus-pulse {
+    from {
+      transform: scale(0.55);
+      opacity: 1;
+    }
+    to {
+      transform: scale(1.25);
+      opacity: 0;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .focus-reticle {
+      animation-duration: 1ms;
+    }
+  }
+
   .th {
     text-align: left;
     font-size: 0.6875rem;

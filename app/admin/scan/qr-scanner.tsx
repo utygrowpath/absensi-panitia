@@ -2,6 +2,13 @@
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { describeCameraError } from "@/lib/camera-error";
+import {
+  buildVideoConstraints,
+  supportsAutoFocus,
+  toCameraList,
+  type CameraChoice,
+  type TorchCapability,
+} from "@/lib/camera-features";
 import { readZoomRange, type ZoomCapability, type ZoomRange } from "@/lib/camera-zoom";
 import { DECODE_WIDTH, computeScanGeometry, type ScanGeometry } from "@/lib/scan-geometry";
 
@@ -20,6 +27,57 @@ async function loadScanner() {
 const SCAN_FPS = 15;
 /** start() resolves before the video plays, so allow time for the stream. */
 const STREAM_TIMEOUT_MS = 3000;
+/** Long enough for the focus ring animation to finish before it is removed. */
+const FOCUS_VISIBLE_MS = 700;
+
+/**
+ * List cameras without touching the running stream. Html5Qrcode.getCameras()
+ * opens and closes a second getUserMedia, which can knock out the camera that
+ * is already scanning; enumerateDevices() is safe because permission has
+ * already been granted by the time this runs.
+ */
+async function enumerateCameras(): Promise<CameraChoice[]> {
+  try {
+    return toCameraList(Array.from(await navigator.mediaDevices.enumerateDevices()));
+  } catch {
+    return [];
+  }
+}
+
+function probeTorch(scanner: Scanner): { capability: TorchCapability; on: boolean } | null {
+  try {
+    const capability = scanner.getRunningTrackCameraCapabilities().torchFeature();
+    if (!capability.isSupported()) return null;
+    return { capability, on: capability.value() ?? false };
+  } catch {
+    return null;
+  }
+}
+
+function readDeviceId(scanner: Scanner): string | null {
+  try {
+    return scanner.getRunningTrackSettings().deviceId ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Restart the camera's autofocus pass. The platform exposes no
+ * point-of-interest focus, so re-requesting `auto` is the only lever there is;
+ * it helps where the driver re-runs autofocus on a repeat request, and is a
+ * harmless no-op where it does not.
+ */
+function retriggerAutofocus(scanner: Scanner) {
+  try {
+    if (!supportsAutoFocus(scanner.getRunningTrackCapabilities())) return;
+    void scanner
+      .applyVideoConstraints({ focusMode: "auto" } as unknown as MediaTrackConstraints)
+      .catch(() => {});
+  } catch {
+    // The camera stopped, or it exposes no focus controls at all.
+  }
+}
 
 /**
  * stop() throws before closing the stream whenever scanning never began, and
@@ -71,13 +129,20 @@ export default function QrScanner({ onToken, disabled }: Props) {
   const hostRef = useRef<HTMLDivElement>(null);
   const scannerRef = useRef<Scanner | null>(null);
   const zoomCapRef = useRef<ZoomCapability | null>(null);
+  const torchCapRef = useRef<TorchCapability | null>(null);
   const onTokenRef = useRef(onToken);
   const timerRef = useRef<number | null>(null);
+  const focusTimerRef = useRef<number | null>(null);
+  const focusSeqRef = useRef(0);
   const cancelledRef = useRef(false);
   const [error, setError] = useState<string | null>(null);
   const [starting, setStarting] = useState(true);
   const [active, setActive] = useState(false);
   const [zoom, setZoom] = useState<{ range: ZoomRange; value: number } | null>(null);
+  const [cameras, setCameras] = useState<CameraChoice[]>([]);
+  const [deviceId, setDeviceId] = useState<string | null>(null);
+  const [torchOn, setTorchOn] = useState<boolean | null>(null);
+  const [focus, setFocus] = useState<{ x: number; y: number; seq: number } | null>(null);
   const [geom, setGeom] = useState<ScanGeometry>({
     scale: 1,
     height: null,
@@ -126,7 +191,38 @@ export default function QrScanner({ onToken, disabled }: Props) {
     }
   }, []);
 
-  const startCamera = useCallback(async () => {
+  const toggleTorch = useCallback(() => {
+    const capability = torchCapRef.current;
+    if (!capability) return;
+    const next = !(torchOn ?? false);
+    try {
+      // The camera may refuse (for example on a front lens); only commit the
+      // new state once the track accepts it.
+      void capability
+        .apply(next)
+        .then(() => setTorchOn(next))
+        .catch(() => {});
+    } catch {
+      // The track ended between the click and this call.
+    }
+  }, [torchOn]);
+
+  const handleStageClick = useCallback(
+    (event: React.MouseEvent<HTMLDivElement>) => {
+      if (!active || error) return;
+      const rect = event.currentTarget.getBoundingClientRect();
+      const seq = ++focusSeqRef.current;
+      setFocus({ x: event.clientX - rect.left, y: event.clientY - rect.top, seq });
+      if (focusTimerRef.current) window.clearTimeout(focusTimerRef.current);
+      focusTimerRef.current = window.setTimeout(() => setFocus(null), FOCUS_VISIBLE_MS);
+
+      const scanner = scannerRef.current;
+      if (scanner) retriggerAutofocus(scanner);
+    },
+    [active, error],
+  );
+
+  const startCamera = useCallback(async (deviceId?: string) => {
     cancelledRef.current = false;
     if (!hostRef.current) return;
 
@@ -135,6 +231,7 @@ export default function QrScanner({ onToken, disabled }: Props) {
     const previous = scannerRef.current;
     scannerRef.current = null;
     zoomCapRef.current = null;
+    torchCapRef.current = null;
     if (previous) {
       try {
         await previous.stop();
@@ -154,30 +251,46 @@ export default function QrScanner({ onToken, disabled }: Props) {
     setError(null);
     setStarting(true);
     setActive(false);
+    setZoom(null);
+    setTorchOn(null);
+    setFocus(null);
 
     const scanner = new Html5Qrcode("qr-reader");
     scannerRef.current = scanner;
 
-    try {
-      // No qrbox: the whole frame is decoded, so a code that is off-centre or
-      // held at an angle still reads. The constraints are ideal, not exact, so
-      // a device without a rear camera or a 720p mode still starts.
-      await scanner.start(
+    // No qrbox: the whole frame is decoded, so a code that is off-centre or
+    // held at an angle still reads. The chosen device has to live inside
+    // videoConstraints: start() ignores its first argument whenever these are
+    // set, so passing a deviceId there would silently do nothing.
+    const startOnce = (id?: string) =>
+      scanner.start(
         { facingMode: "environment" },
-        {
-          fps: SCAN_FPS,
-          videoConstraints: {
-            facingMode: "environment",
-            width: { ideal: 1280 },
-            height: { ideal: 720 },
-          },
-        },
+        { fps: SCAN_FPS, videoConstraints: buildVideoConstraints(id) },
         (text) => onTokenRef.current(text),
         () => {},
       );
+
+    let startError: unknown = null;
+    try {
+      await startOnce(deviceId);
     } catch (e) {
+      startError = e;
+    }
+
+    // A remembered device can go stale after a reboot or a permission reset,
+    // so fall back to the default camera rather than dead-ending on it.
+    if (startError !== null && deviceId) {
+      try {
+        await startOnce();
+        startError = null;
+      } catch (e) {
+        startError = e;
+      }
+    }
+
+    if (startError !== null) {
       if (cancelledRef.current) return;
-      setError(describeCameraError(e));
+      setError(describeCameraError(startError));
       setStarting(false);
       return;
     }
@@ -189,17 +302,27 @@ export default function QrScanner({ onToken, disabled }: Props) {
       return;
     }
 
-    // renderedCamera is assigned before start() resolves, so this is safe.
+    // renderedCamera is assigned before start() resolves, so these are safe.
     const zoomProbe = probeZoom(scanner);
-    if (zoomProbe) {
-      zoomCapRef.current = zoomProbe.capability;
-      // Defer past the effect body so the slider state does not trigger a
-      // cascading render from inside the mount effect.
-      queueMicrotask(() => setZoom({ range: zoomProbe.range, value: zoomProbe.range.value }));
-    }
+    if (zoomProbe) zoomCapRef.current = zoomProbe.capability;
 
-    setActive(true);
-    setStarting(false);
+    const torchProbe = probeTorch(scanner);
+    if (torchProbe) torchCapRef.current = torchProbe.capability;
+
+    const foundDeviceId = readDeviceId(scanner);
+    const foundCameras = await enumerateCameras();
+
+    // Defer past the effect body so this batch does not trigger a cascading
+    // render from inside the mount effect.
+    queueMicrotask(() => {
+      if (cancelledRef.current) return;
+      setZoom(zoomProbe ? { range: zoomProbe.range, value: zoomProbe.range.value } : null);
+      setTorchOn(torchProbe ? torchProbe.on : null);
+      setDeviceId(foundDeviceId);
+      setCameras(foundCameras);
+      setActive(true);
+      setStarting(false);
+    });
 
     // start() resolves before `playing` fires, and iOS rejects play() without a
     // user gesture while reporting no error. Catch that silent black frame.
@@ -208,7 +331,9 @@ export default function QrScanner({ onToken, disabled }: Props) {
       if (!scanner.isScanning) {
         setError("Camera did not start. Tap Try again to relaunch it.");
         setZoom(null);
+        setTorchOn(null);
         zoomCapRef.current = null;
+        torchCapRef.current = null;
       }
     }, STREAM_TIMEOUT_MS);
   }, []);
@@ -231,11 +356,12 @@ export default function QrScanner({ onToken, disabled }: Props) {
     <div className="w-full">
       <div
         ref={panelRef}
-        className="relative min-h-64 w-full overflow-hidden bg-ink"
+        className="relative min-h-64 w-full cursor-crosshair overflow-hidden bg-ink"
         style={{
           height: geom.height ?? undefined,
           minHeight: geom.minHeight || undefined,
         }}
+        onClick={handleStageClick}
       >
         <div
           id="qr-reader"
@@ -283,30 +409,77 @@ export default function QrScanner({ onToken, disabled }: Props) {
             </div>
           </div>
         ) : null}
+
+        {/* Marks where the user tapped to refocus. */}
+        {focus ? (
+          <span
+            key={focus.seq}
+            aria-hidden
+            className="focus-reticle pointer-events-none"
+            style={{ left: focus.x, top: focus.y }}
+          />
+        ) : null}
       </div>
 
-      {/* Zoom is only offered when the camera actually exposes the capability. */}
-      {zoom && !error ? (
-        <div className="flex items-center gap-3 border-t border-line px-4 py-3">
-          <label
-            htmlFor="qr-zoom"
-            className="shrink-0 text-[0.75rem] font-medium text-ink-muted"
-          >
-            Zoom
-          </label>
-          <input
-            id="qr-zoom"
-            type="range"
-            className="zoom-slider min-w-0 flex-1"
-            min={zoom.range.min}
-            max={zoom.range.max}
-            step={zoom.range.step}
-            value={zoom.value}
-            onChange={(event) => applyZoom(Number(event.target.value))}
-          />
-          <span className="w-10 shrink-0 text-right text-[0.75rem] font-medium tabular-nums text-ink">
-            {zoom.value.toFixed(1)}×
-          </span>
+      {/* Camera controls appear only for capabilities the camera really has. */}
+      {!error && (cameras.length > 1 || torchOn !== null || zoom) ? (
+        <div className="flex flex-col gap-3 border-t border-line px-4 py-3">
+          {cameras.length > 1 || torchOn !== null ? (
+            <div className="flex flex-wrap items-center gap-2">
+              {cameras.length > 1 ? (
+                <select
+                  aria-label="Camera"
+                  className="field min-w-0 max-w-64 flex-1"
+                  value={deviceId ?? ""}
+                  disabled={disabled}
+                  onChange={(event) => void startCamera(event.target.value)}
+                >
+                  {cameras.map((camera) => (
+                    <option key={camera.id} value={camera.id}>
+                      {camera.label}
+                    </option>
+                  ))}
+                </select>
+              ) : null}
+
+              {torchOn !== null ? (
+                <button
+                  type="button"
+                  className={`btn shrink-0 ${torchOn ? "btn-primary" : "btn-outline"}`}
+                  aria-pressed={torchOn}
+                  disabled={disabled}
+                  onClick={toggleTorch}
+                >
+                  {torchOn ? "Flash on" : "Flash off"}
+                </button>
+              ) : null}
+            </div>
+          ) : null}
+
+          {zoom ? (
+            <div className="flex items-center gap-3">
+              <label
+                htmlFor="qr-zoom"
+                className="shrink-0 text-[0.75rem] font-medium text-ink-muted"
+              >
+                Zoom
+              </label>
+              <input
+                id="qr-zoom"
+                type="range"
+                className="zoom-slider min-w-0 flex-1"
+                min={zoom.range.min}
+                max={zoom.range.max}
+                step={zoom.range.step}
+                value={zoom.value}
+                disabled={disabled}
+                onChange={(event) => applyZoom(Number(event.target.value))}
+              />
+              <span className="w-10 shrink-0 text-right text-[0.75rem] font-medium tabular-nums text-ink">
+                {zoom.value.toFixed(1)}×
+              </span>
+            </div>
+          ) : null}
         </div>
       ) : null}
     </div>
