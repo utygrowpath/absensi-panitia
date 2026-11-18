@@ -66,7 +66,7 @@ export function Scanner() {
   return (
     <div className="flex flex-col gap-6">
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_20rem]">
-        <div className="panel overflow-hidden">
+        <div className="panel min-h-64 overflow-hidden">
           <QrScanner onToken={handleToken} disabled={busy} />
         </div>
 
