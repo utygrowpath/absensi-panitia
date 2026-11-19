@@ -6,14 +6,6 @@ import type { Panitia } from "@/lib/types";
 
 type Filter = { divisi: string };
 
-export function PrintButton() {
-  return (
-    <button className="btn btn-primary" type="button" onClick={() => window.print()}>
-      Print all
-    </button>
-  );
-}
-
 export function QrSheet({ members }: { members: Panitia[] }) {
   const divisions = [...new Set(members.map((m) => m.divisi))].sort();
   const [filter, setFilter] = useState<Filter["divisi"]>("");
