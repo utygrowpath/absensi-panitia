@@ -281,113 +281,133 @@
     box-shadow: 0 1px 2px rgb(0 0 0 / 0.05);
   }
 
-  .zoom-slider {
+  /* Camera overlay chrome: a scrim so the controls read on any feed, frosted
+     pills for the readout, round buttons, and a ruler-style zoom. */
+  .cam-scrim {
+    background: linear-gradient(
+      to top,
+      rgb(0 0 0 / 0.85) 0%,
+      rgb(0 0 0 / 0.7) 55%,
+      rgb(0 0 0 / 0.4) 80%,
+      transparent 100%
+    );
+  }
+
+  /* The pill shape comes from .chip; this only re-tints it for the feed. */
+  .cam-chip {
+    background: rgb(24 24 27 / 0.72);
+    color: var(--color-surface);
+    letter-spacing: 0.04em;
+    -webkit-backdrop-filter: blur(6px);
+    backdrop-filter: blur(6px);
+  }
+
+  /* Round overlay button for flash and camera switch. */
+  .cam-fab {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: none;
+    width: 2.75rem;
+    height: 2.75rem;
+    border-radius: 9999px;
+    background: rgb(24 24 27 / 0.72);
+    color: var(--color-surface);
+    -webkit-backdrop-filter: blur(6px);
+    backdrop-filter: blur(6px);
+    cursor: pointer;
+    transition:
+      background-color 150ms cubic-bezier(0.16, 1, 0.3, 1),
+      color 150ms cubic-bezier(0.16, 1, 0.3, 1),
+      transform 150ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .cam-fab:hover {
+    background: rgb(24 24 27 / 0.88);
+  }
+
+  .cam-fab:active {
+    transform: scale(0.94);
+  }
+
+  /* Lit = the torch is on. Flipping to the light chip states it in colour
+     before you look at the beam. */
+  .cam-fab[aria-pressed="true"] {
+    background: var(--color-surface);
+    color: var(--color-ink);
+  }
+
+  .cam-fab:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  /* The global focus ring is ink-coloured, which is invisible over the feed. */
+  .cam-fab:focus-visible,
+  .zoom-ruler:focus-visible {
+    outline-color: var(--color-surface);
+  }
+
+  /* Ruler zoom: tick marks instead of a solid track, and a line instead of a
+     knob, so the value reads as a position on a scale rather than a blob. */
+  .zoom-ruler {
     -webkit-appearance: none;
     appearance: none;
+    width: 100%;
+    min-width: 0;
     height: 1.5rem;
     background: transparent;
     cursor: pointer;
   }
 
-  .zoom-slider:disabled {
+  .zoom-ruler:disabled {
     opacity: 0.5;
     cursor: not-allowed;
   }
 
-  .zoom-slider::-webkit-slider-runnable-track {
-    height: 0.25rem;
-    border-radius: 9999px;
-    background: var(--color-line-strong);
-  }
-
-  .zoom-slider::-webkit-slider-thumb {
-    -webkit-appearance: none;
-    appearance: none;
-    width: 1.125rem;
-    height: 1.125rem;
-    /* Center the thumb on the 0.25rem track. */
-    margin-top: -0.4375rem;
-    border: none;
-    border-radius: 9999px;
-    background: var(--color-ink);
-    transition: background-color 150ms cubic-bezier(0.16, 1, 0.3, 1);
-  }
-
-  .zoom-slider:hover::-webkit-slider-thumb {
-    background: #27272a;
-  }
-
-  .zoom-slider::-moz-range-track {
-    height: 0.25rem;
-    border-radius: 9999px;
-    background: var(--color-line-strong);
-  }
-
-  .zoom-slider::-moz-range-thumb {
-    width: 1.125rem;
-    height: 1.125rem;
-    border: none;
-    border-radius: 9999px;
-    background: var(--color-ink);
-  }
-
-  .zoom-slider:hover::-moz-range-thumb {
-    background: #27272a;
-  }
-
-  /* The same slider over the dark control bar: the light-on-dark variant of
-     the track and thumb above, so it stays visible against bg-ink. */
-  .zoom-slider-invert {
-    -webkit-appearance: none;
-    appearance: none;
+  /* A 1px tick every 9px, drawn in a strip that is centred in the track. */
+  .zoom-ruler::-webkit-slider-runnable-track {
     height: 1.5rem;
-    background: transparent;
-    cursor: pointer;
+    background-image: repeating-linear-gradient(
+      to right,
+      rgb(255 255 255 / 0.55) 0 1px,
+      transparent 1px 9px
+    );
+    background-size: 100% 0.5rem;
+    background-position: center;
+    background-repeat: no-repeat;
   }
 
-  .zoom-slider-invert:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-  }
-
-  .zoom-slider-invert::-webkit-slider-runnable-track {
-    height: 0.25rem;
-    border-radius: 9999px;
-    background: rgb(255 255 255 / 0.3);
-  }
-
-  .zoom-slider-invert::-webkit-slider-thumb {
+  .zoom-ruler::-webkit-slider-thumb {
     -webkit-appearance: none;
     appearance: none;
-    width: 1.125rem;
-    height: 1.125rem;
-    /* Center the thumb on the 0.25rem track. */
-    margin-top: -0.4375rem;
+    width: 2px;
+    height: 1.5rem;
+    /* Thumb and track are the same height, so it needs no offset. */
+    margin-top: 0;
     border: none;
-    border-radius: 9999px;
+    border-radius: 1px;
     background: var(--color-surface);
   }
 
-  .zoom-slider-invert:hover::-webkit-slider-thumb {
-    background: #e4e4e7;
+  .zoom-ruler::-moz-range-track {
+    height: 1.5rem;
+    background-image: repeating-linear-gradient(
+      to right,
+      rgb(255 255 255 / 0.55) 0 1px,
+      transparent 1px 9px
+    );
+    background-size: 100% 0.5rem;
+    background-position: center;
+    background-repeat: no-repeat;
   }
 
-  .zoom-slider-invert::-moz-range-track {
-    height: 0.25rem;
-    border-radius: 9999px;
-    background: rgb(255 255 255 / 0.3);
-  }
-
-  .zoom-slider-invert::-moz-range-thumb {
-    width: 1.125rem;
-    height: 1.125rem;
+  .zoom-ruler::-moz-range-thumb {
+    width: 2px;
+    height: 1.5rem;
     border: none;
-    border-radius: 9999px;
+    border-radius: 1px;
     background: var(--color-surface);
-  }
-
-  .zoom-slider-invert:hover::-moz-range-thumb {
-    background: #e4e4e7;
   }
 
   /* Tap-to-focus marker. Sized and offset in JS so it lands on the tap, and

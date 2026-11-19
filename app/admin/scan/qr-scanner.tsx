@@ -4,10 +4,12 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react
 import { describeCameraError } from "@/lib/camera-error";
 import {
   buildVideoConstraints,
+  resolutionLabel,
   supportsAutoFocus,
   toCameraList,
   type CameraChoice,
   type TorchCapability,
+  type TrackInfo,
 } from "@/lib/camera-features";
 import { readZoomRange, type ZoomCapability, type ZoomRange } from "@/lib/camera-zoom";
 import { DECODE_WIDTH, computeScanGeometry, type ScanGeometry } from "@/lib/scan-geometry";
@@ -29,8 +31,10 @@ const SCAN_FPS = 15;
 const STREAM_TIMEOUT_MS = 3000;
 /** Long enough for the focus ring animation to finish before it is removed. */
 const FOCUS_VISIBLE_MS = 700;
-/** Room for the control bar so the aiming brackets clear it. */
-const CONTROLS_INSET = "5rem";
+/** Room for the bottom scrim so the aiming brackets clear the controls. */
+const CONTROLS_INSET = "5.5rem";
+/** Room for the status chips so the brackets clear those too. */
+const CHIPS_INSET = "2.5rem";
 
 /**
  * Stop every stream and drop every video in the host. start() clears the
@@ -93,11 +97,16 @@ function probeTorch(scanner: Scanner): { capability: TorchCapability; on: boolea
   }
 }
 
-function readDeviceId(scanner: Scanner): string | null {
+function readTrackInfo(scanner: Scanner): TrackInfo {
   try {
-    return scanner.getRunningTrackSettings().deviceId ?? null;
+    const settings = scanner.getRunningTrackSettings();
+    return {
+      deviceId: settings.deviceId ?? null,
+      width: settings.width ?? 0,
+      height: settings.height ?? 0,
+    };
   } catch {
-    return null;
+    return { deviceId: null, width: 0, height: 0 };
   }
 }
 
@@ -140,7 +149,7 @@ export default function QrScanner({ onToken, disabled }: Props) {
   const [active, setActive] = useState(false);
   const [zoom, setZoom] = useState<{ range: ZoomRange; value: number } | null>(null);
   const [cameras, setCameras] = useState<CameraChoice[]>([]);
-  const [deviceId, setDeviceId] = useState<string | null>(null);
+  const [track, setTrack] = useState<TrackInfo | null>(null);
   const [torchOn, setTorchOn] = useState<boolean | null>(null);
   const [focus, setFocus] = useState<{ x: number; y: number; seq: number } | null>(null);
   const [geom, setGeom] = useState<ScanGeometry>({
@@ -315,7 +324,7 @@ export default function QrScanner({ onToken, disabled }: Props) {
     const torchProbe = probeTorch(scanner);
     if (torchProbe) torchCapRef.current = torchProbe.capability;
 
-    const foundDeviceId = readDeviceId(scanner);
+    const foundTrack = readTrackInfo(scanner);
     const foundCameras = await enumerateCameras();
 
     // Defer past the effect body so this batch does not trigger a cascading
@@ -324,7 +333,7 @@ export default function QrScanner({ onToken, disabled }: Props) {
       if (isStale()) return;
       setZoom(zoomProbe ? { range: zoomProbe.range, value: zoomProbe.range.value } : null);
       setTorchOn(torchProbe ? torchProbe.on : null);
-      setDeviceId(foundDeviceId);
+      setTrack(foundTrack);
       setCameras(foundCameras);
       setActive(true);
       setStarting(false);
@@ -362,6 +371,20 @@ export default function QrScanner({ onToken, disabled }: Props) {
   }, [startCamera]);
 
   const hasControls = cameras.length > 1 || torchOn !== null || zoom !== null;
+
+  // Read from the running stream, not from the device we asked for: a start
+  // that fell back to the default camera reports a different one.
+  const activeCameraId = track?.deviceId ?? null;
+  const cameraLabel = cameras.find((camera) => camera.id === activeCameraId)?.label ?? null;
+  const resolution = track ? resolutionLabel(track.width) : "";
+
+  const cycleCamera = useCallback(() => {
+    if (cameras.length < 2 || disabled) return;
+    const index = cameras.findIndex((camera) => camera.id === track?.deviceId);
+    // -1 when the running device is missing from the list; that wraps to the
+    // first camera instead of staying where it is.
+    void startCamera(cameras[(index + 1) % cameras.length].id);
+  }, [cameras, track, disabled, startCamera]);
 
   return (
     <div className="w-full">
@@ -406,13 +429,21 @@ export default function QrScanner({ onToken, disabled }: Props) {
           </div>
         ) : null}
 
+        {/* Which camera is live and what it is capturing. */}
+        {active && !error && (cameraLabel || resolution) ? (
+          <div className="pointer-events-none absolute inset-x-0 top-0 z-10 flex items-start justify-between gap-2 p-3">
+            {cameraLabel ? <span className="chip cam-chip">{cameraLabel}</span> : null}
+            {resolution ? <span className="chip cam-chip ml-auto">{resolution}</span> : null}
+          </div>
+        ) : null}
+
         {/* Aiming brackets. Detection covers the whole frame, so this only hints.
-            Lifted above the control bar so the controls never cover them. */}
+            Inset past the chips above and the control scrim below. */}
         {active && !error && !disabled ? (
           <div
             aria-hidden
-            className="pointer-events-none absolute inset-x-0 top-0 flex items-center justify-center"
-            style={{ bottom: CONTROLS_INSET }}
+            className="pointer-events-none absolute inset-x-0 flex items-center justify-center"
+            style={{ top: CHIPS_INSET, bottom: CONTROLS_INSET }}
           >
             <div className="relative aspect-square h-[60%] max-h-64">
               <span className="absolute left-0 top-0 h-6 w-6 border-l-2 border-t-2 border-surface/80" />
@@ -433,71 +464,112 @@ export default function QrScanner({ onToken, disabled }: Props) {
           />
         ) : null}
 
-        {/* Controls sit over the feed so the camera keeps the whole panel. */}
+        {/* Controls float over a scrim so they read on any feed and the
+            preview still keeps the whole panel. */}
         {active && !error && hasControls ? (
           <div
-            className="absolute inset-x-0 bottom-0 z-10 flex flex-col gap-2 border-t border-surface/20 bg-ink/90 px-3 py-2.5"
+            className="cam-scrim absolute inset-x-0 bottom-0 z-10 flex items-center gap-3 px-3 pb-3 pt-8"
             onClick={(event) => event.stopPropagation()}
           >
-            <div className="flex items-center gap-2">
-              {cameras.length > 1 ? (
-                <select
-                  aria-label="Camera"
-                  className="field h-8 min-w-0 flex-1 text-[0.75rem]"
-                  value={deviceId ?? ""}
-                  disabled={disabled}
-                  onChange={(event) => void startCamera(event.target.value)}
-                >
-                  {cameras.map((camera) => (
-                    <option key={camera.id} value={camera.id}>
-                      {camera.label}
-                    </option>
-                  ))}
-                </select>
-              ) : null}
+            {torchOn !== null ? (
+              <button
+                type="button"
+                className="cam-fab"
+                aria-label={torchOn ? "Turn flash off" : "Turn flash on"}
+                aria-pressed={torchOn}
+                disabled={disabled}
+                onClick={toggleTorch}
+              >
+                <ZapIcon />
+              </button>
+            ) : null}
 
-              {torchOn !== null ? (
-                <button
-                  type="button"
-                  className={`btn h-8 shrink-0 px-3 text-[0.75rem] ${
-                    torchOn ? "btn-primary" : "btn-outline"
-                  }`}
-                  aria-pressed={torchOn}
-                  disabled={disabled}
-                  onClick={toggleTorch}
-                >
-                  {torchOn ? "Flash on" : "Flash off"}
-                </button>
+            {/* The value sits above the track, so the row stays one line tall
+                and the fabs line up with the slider rather than the label. */}
+            <div className="relative flex min-w-0 flex-1 items-center">
+              {zoom ? (
+                <>
+                  <span className="pointer-events-none absolute inset-x-0 -top-5 text-center text-[0.6875rem] font-semibold tabular-nums tracking-wide text-surface">
+                    {zoom.value.toFixed(1)}×
+                  </span>
+                  <input
+                    id="qr-zoom"
+                    aria-label="Zoom"
+                    type="range"
+                    className="zoom-ruler w-full"
+                    min={zoom.range.min}
+                    max={zoom.range.max}
+                    step={zoom.range.step}
+                    value={zoom.value}
+                    disabled={disabled}
+                    onChange={(event) => applyZoom(Number(event.target.value))}
+                  />
+                </>
               ) : null}
             </div>
 
-            {zoom ? (
-              <div className="flex items-center gap-2">
-                <label
-                  htmlFor="qr-zoom"
-                  className="shrink-0 text-[0.6875rem] font-medium text-surface/70"
-                >
-                  Zoom
-                </label>
-                <input
-                  id="qr-zoom"
-                  type="range"
-                  className="zoom-slider-invert min-w-0 flex-1"
-                  min={zoom.range.min}
-                  max={zoom.range.max}
-                  step={zoom.range.step}
-                  value={zoom.value}
-                  disabled={disabled}
-                  onChange={(event) => applyZoom(Number(event.target.value))}
-                />
-                <span className="w-9 shrink-0 text-right text-[0.6875rem] font-medium tabular-nums text-surface">
-                  {zoom.value.toFixed(1)}×
-                </span>
-              </div>
+            {cameras.length > 1 ? (
+              <button
+                type="button"
+                className="cam-fab"
+                aria-label="Switch camera"
+                disabled={disabled}
+                onClick={cycleCamera}
+              >
+                <SwitchCameraIcon />
+              </button>
             ) : null}
           </div>
         ) : null}
       </div>
     </div>
+  );
+}
+
+/**
+ * Overlay icons. One stroke weight on a 24 grid so the two buttons read as a
+ * pair; the bolt is additionally filled because a hollow lightning shape is
+ * illegible at this size.
+ */
+function ZapIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="currentColor"
+      stroke="currentColor"
+      strokeWidth={1.75}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className="h-5 w-5"
+      aria-hidden="true"
+    >
+      <path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z" />
+    </svg>
+  );
+}
+
+function SwitchCameraIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.75}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className="h-5 w-5"
+      aria-hidden="true"
+    >
+      {/* Nudged down so the arrow and the camera sit evenly in the box. */}
+      <g transform="translate(0 1)">
+        {/* Rotate arrow wrapping the camera's top; the corner is the head. */}
+        <path d="M6.6 7.6a6.2 6.2 0 0 1 10.6-.8" />
+        <path d="M17.2 2.8v4h-4" />
+        {/* Camera body, viewfinder hump and lens. */}
+        <rect x="6.4" y="10.6" width="11.2" height="8.4" rx="1.8" />
+        <path d="M10 10.6 11 9h2l1 1.6" />
+        <circle cx="12" cy="14.8" r="2.5" />
+      </g>
+    </svg>
   );
 }

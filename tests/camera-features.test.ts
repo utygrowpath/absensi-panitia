@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { buildVideoConstraints, supportsAutoFocus, toCameraList } from "../lib/camera-features";
+import {
+  buildVideoConstraints,
+  resolutionLabel,
+  supportsAutoFocus,
+  toCameraList,
+} from "../lib/camera-features";
 
 describe("buildVideoConstraints", () => {
   it("prefers the rear camera when no device is chosen", () => {
@@ -66,5 +71,22 @@ describe("supportsAutoFocus", () => {
     expect(supportsAutoFocus(undefined)).toBe(false);
     expect(supportsAutoFocus(null)).toBe(false);
     expect(supportsAutoFocus("zoom")).toBe(false);
+  });
+});
+
+describe("resolutionLabel", () => {
+  it("names the common capture widths", () => {
+    expect(resolutionLabel(3840)).toBe("4K");
+    expect(resolutionLabel(2560)).toBe("QHD");
+    expect(resolutionLabel(1920)).toBe("FHD");
+    expect(resolutionLabel(1280)).toBe("HD");
+    expect(resolutionLabel(640)).toBe("SD");
+  });
+
+  it("hides the chip when the stream reports nothing usable", () => {
+    // Before metadata loads the track reports 0, and a badge would be a lie.
+    expect(resolutionLabel(0)).toBe("");
+    expect(resolutionLabel(-1)).toBe("");
+    expect(resolutionLabel(Number.NaN)).toBe("");
   });
 });

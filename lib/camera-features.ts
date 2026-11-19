@@ -26,6 +26,13 @@ export function buildVideoConstraints(deviceId?: string): MediaTrackConstraints 
 
 export type CameraChoice = { id: string; label: string };
 
+/** What the running stream reports about itself. */
+export type TrackInfo = {
+  deviceId: string | null;
+  width: number;
+  height: number;
+};
+
 /** Keep real, identifiable video inputs and name the ones without a label. */
 export function toCameraList(
   devices: readonly { kind: string; deviceId: string; label: string }[],
@@ -39,6 +46,21 @@ export function toCameraList(
     });
   }
   return cameras;
+}
+
+/**
+ * Short badge for a capture width, the way camera apps label resolution.
+ * Returns an empty string when the stream reports nothing usable, so the chip
+ * is hidden rather than showing a made-up value.
+ */
+export function resolutionLabel(width: number): string {
+  if (!Number.isFinite(width) || width <= 0) return "";
+  if (width >= 3840) return "4K";
+  if (width >= 2560) return "QHD";
+  if (width >= 1920) return "FHD";
+  if (width >= 1280) return "HD";
+  if (width >= 640) return "SD";
+  return "";
 }
 
 /**
