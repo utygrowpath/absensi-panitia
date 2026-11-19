@@ -335,6 +335,61 @@
     background: #27272a;
   }
 
+  /* The same slider over the dark control bar: the light-on-dark variant of
+     the track and thumb above, so it stays visible against bg-ink. */
+  .zoom-slider-invert {
+    -webkit-appearance: none;
+    appearance: none;
+    height: 1.5rem;
+    background: transparent;
+    cursor: pointer;
+  }
+
+  .zoom-slider-invert:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .zoom-slider-invert::-webkit-slider-runnable-track {
+    height: 0.25rem;
+    border-radius: 9999px;
+    background: rgb(255 255 255 / 0.3);
+  }
+
+  .zoom-slider-invert::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 1.125rem;
+    height: 1.125rem;
+    /* Center the thumb on the 0.25rem track. */
+    margin-top: -0.4375rem;
+    border: none;
+    border-radius: 9999px;
+    background: var(--color-surface);
+  }
+
+  .zoom-slider-invert:hover::-webkit-slider-thumb {
+    background: #e4e4e7;
+  }
+
+  .zoom-slider-invert::-moz-range-track {
+    height: 0.25rem;
+    border-radius: 9999px;
+    background: rgb(255 255 255 / 0.3);
+  }
+
+  .zoom-slider-invert::-moz-range-thumb {
+    width: 1.125rem;
+    height: 1.125rem;
+    border: none;
+    border-radius: 9999px;
+    background: var(--color-surface);
+  }
+
+  .zoom-slider-invert:hover::-moz-range-thumb {
+    background: #e4e4e7;
+  }
+
   /* Tap-to-focus marker. Sized and offset in JS so it lands on the tap, and
      animated once from an already-visible state. */
   .focus-reticle {
