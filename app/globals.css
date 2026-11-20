@@ -1,16 +1,27 @@
 @import "tailwindcss";
 
+/* Season 4 skin. Swap these four when a season changes; every neutral below
+   is derived from them. Status colours are product truth and never move. */
+:root {
+  --season-ground: #fff9f0;
+  --season-gold: #f7cb4d;
+  --season-red: #e13b43;
+  --season-ink: #30302f;
+}
+
 @theme {
-  --color-surface: #ffffff;
-  --color-surface-muted: #fafafa;
-  /* Chrome layer for the sidebar: a touch cooler and darker than the page so
-     white content panels read as the work surface. */
-  --color-chrome: #f4f4f5;
-  --color-ink: #18181b;
-  --color-ink-muted: #52525b;
-  --color-ink-faint: #71717a;
-  --color-line: #e4e4e7;
-  --color-line-strong: #d4d4d8;
+  --color-surface: var(--season-ground);
+  --color-surface-muted: #fbf3e6;
+  /* Chrome layer for the sidebar: warmer and a shade deeper than the page so
+     the work surface reads as the place content lives. */
+  --color-chrome: #f6ebd8;
+  --color-ink: var(--season-ink);
+  /* Warm-tinted from the ink rather than grey: every step holds 4.6:1 or
+     better against the cream ground. */
+  --color-ink-muted: #55504a;
+  --color-ink-faint: #757069;
+  --color-line: #e9dfcd;
+  --color-line-strong: #d9c9ad;
 
   --color-hadir: #166534;
   --color-hadir-soft: #f0fdf4;
@@ -21,8 +32,8 @@
   --color-alfa: #991b1b;
   --color-alfa-soft: #fef2f2;
   --color-alfa-line: #fecaca;
-  --color-belum: #52525b;
-  --color-belum-soft: #f4f4f5;
+  --color-belum: #55504a;
+  --color-belum-soft: #f6efe1;
 
   --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--font-geist-mono), ui-monospace, monospace;
@@ -80,7 +91,7 @@
   }
 
   ::-webkit-scrollbar-thumb:hover {
-    background: #a1a1aa;
+    background: #b9ab93;
     background-clip: padding-box;
   }
 }
@@ -118,7 +129,7 @@
   }
 
   .btn-primary:hover:not(:disabled) {
-    background: #27272a;
+    background: #43423c;
   }
 
   .btn-outline {
@@ -129,7 +140,7 @@
 
   .btn-outline:hover:not(:disabled) {
     background: var(--color-surface-muted);
-    border-color: #a1a1aa;
+    border-color: #b9ab93;
   }
 
   .btn-quiet {
@@ -167,6 +178,8 @@
     background: var(--color-surface);
     color: var(--color-ink);
     font-size: 0.875rem;
+    /* The caret ships browser-default; give it the season's red. */
+    caret-color: var(--season-red);
     transition:
       border-color 150ms cubic-bezier(0.16, 1, 0.3, 1),
       box-shadow 150ms cubic-bezier(0.16, 1, 0.3, 1);
@@ -177,13 +190,13 @@
   }
 
   .field:hover:not(:disabled) {
-    border-color: #a1a1aa;
+    border-color: #b9ab93;
   }
 
   .field:focus {
     outline: none;
     border-color: var(--color-ink);
-    box-shadow: 0 0 0 3px rgb(24 24 27 / 0.08);
+    box-shadow: 0 0 0 3px rgb(48 48 47 / 0.08);
   }
 
   .field:disabled {
@@ -295,7 +308,7 @@
 
   /* The pill shape comes from .chip; this only re-tints it for the feed. */
   .cam-chip {
-    background: rgb(24 24 27 / 0.72);
+    background: rgb(48 48 47 / 0.72);
     color: var(--color-surface);
     letter-spacing: 0.04em;
     -webkit-backdrop-filter: blur(6px);
@@ -311,7 +324,7 @@
     width: 2.75rem;
     height: 2.75rem;
     border-radius: 9999px;
-    background: rgb(24 24 27 / 0.72);
+    background: rgb(48 48 47 / 0.72);
     color: var(--color-surface);
     -webkit-backdrop-filter: blur(6px);
     backdrop-filter: blur(6px);
@@ -323,7 +336,7 @@
   }
 
   .cam-fab:hover {
-    background: rgb(24 24 27 / 0.88);
+    background: rgb(48 48 47 / 0.88);
   }
 
   .cam-fab:active {

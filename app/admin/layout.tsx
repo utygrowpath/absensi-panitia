@@ -1,5 +1,6 @@
 import { connection } from "next/server";
 import type { Metadata } from "next";
+import Image from "next/image";
 import { requireAdmin } from "@/lib/auth";
 import { AdminNav, SignOut } from "./nav";
 
@@ -26,6 +27,14 @@ export default async function AdminLayout({
       <aside className="flex flex-col border-b border-line bg-chrome lg:sticky lg:top-0 lg:h-screen lg:w-60 lg:flex-none lg:self-start lg:overflow-y-auto lg:border-r lg:border-b-0">
         <div className="flex items-center justify-between px-5 py-4 lg:block">
           <div>
+            <Image
+              src="/assets/season4/gowpaths4.png"
+              alt="Growpath Season 4"
+              width={40}
+              height={49}
+              priority
+              className="mb-2.5"
+            />
             <p className="text-[0.9375rem] font-semibold tracking-tight text-ink">
               Presensi Panitia
             </p>
