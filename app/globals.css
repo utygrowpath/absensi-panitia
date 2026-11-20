@@ -1,26 +1,489 @@
 @import "tailwindcss";
 
+/* Season 4 skin. Swap these four when a season changes; every neutral below
+   is derived from them. Status colours are product truth and never move. */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --season-ground: #fff9f0;
+  --season-gold: #f7cb4d;
+  --season-red: #e13b43;
+  --season-ink: #30302f;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+@theme {
+  --color-surface: var(--season-ground);
+  --color-surface-muted: #fbf3e6;
+  /* Chrome layer for the sidebar: warmer and a shade deeper than the page so
+     the work surface reads as the place content lives. */
+  --color-chrome: #f6ebd8;
+  --color-ink: var(--season-ink);
+  /* Warm-tinted from the ink rather than grey: every step holds 4.6:1 or
+     better against the cream ground. */
+  --color-ink-muted: #55504a;
+  --color-ink-faint: #757069;
+  --color-line: #e9dfcd;
+  --color-line-strong: #d9c9ad;
+
+  --color-hadir: #166534;
+  --color-hadir-soft: #f0fdf4;
+  --color-hadir-line: #bbf7d0;
+  --color-izin: #92400e;
+  --color-izin-soft: #fffbeb;
+  --color-izin-line: #fde68a;
+  --color-alfa: #991b1b;
+  --color-alfa-soft: #fef2f2;
+  --color-alfa-line: #fecaca;
+  --color-belum: #55504a;
+  --color-belum-soft: #f6efe1;
+
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+@layer base {
+  html {
+    color-scheme: light;
+  }
+
+  body {
+    background: var(--color-surface-muted);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  ::selection {
+    background: var(--color-ink);
+    color: var(--color-surface);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-ink);
+    outline-offset: 2px;
+    border-radius: 0.25rem;
+  }
+
+  table {
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Browser surfaces carry the design too: tint the scrollbar to the palette
+     instead of shipping the platform default. */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-line-strong) transparent;
+  }
+
+  ::-webkit-scrollbar {
+    width: 0.625rem;
+    height: 0.625rem;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: var(--color-line-strong);
+    border-radius: 9999px;
+    border: 0.1875rem solid transparent;
+    background-clip: padding-box;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: #b9ab93;
+    background-clip: padding-box;
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+@layer components {
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    height: 2.25rem;
+    padding-inline: 0.875rem;
+    border-radius: 0.5rem;
+    font-size: 0.8125rem;
+    font-weight: 550;
+    letter-spacing: -0.01em;
+    white-space: nowrap;
+    cursor: pointer;
+    transition:
+      background-color 150ms cubic-bezier(0.16, 1, 0.3, 1),
+      border-color 150ms cubic-bezier(0.16, 1, 0.3, 1),
+      color 150ms cubic-bezier(0.16, 1, 0.3, 1),
+      box-shadow 150ms cubic-bezier(0.16, 1, 0.3, 1),
+      opacity 150ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .btn-primary {
+    background: var(--color-ink);
+    color: var(--color-surface);
+  }
+
+  .btn-primary:hover:not(:disabled) {
+    background: #43423c;
+  }
+
+  .btn-outline {
+    background: var(--color-surface);
+    color: var(--color-ink);
+    border: 1px solid var(--color-line-strong);
+  }
+
+  .btn-outline:hover:not(:disabled) {
+    background: var(--color-surface-muted);
+    border-color: #b9ab93;
+  }
+
+  .btn-quiet {
+    background: transparent;
+    color: var(--color-ink-muted);
+  }
+
+  .btn-quiet:hover:not(:disabled) {
+    background: var(--color-surface-muted);
+    color: var(--color-ink);
+  }
+
+  .btn-danger {
+    background: var(--color-surface);
+    color: var(--color-alfa);
+    border: 1px solid var(--color-alfa-line);
+  }
+
+  .btn-danger:hover:not(:disabled) {
+    background: var(--color-alfa-soft);
+  }
+
+  .btn-lg {
+    height: 2.75rem;
+    font-size: 0.875rem;
+    padding-inline: 1.125rem;
+  }
+
+  .field {
+    width: 100%;
+    height: 2.5rem;
+    padding-inline: 0.75rem;
+    border: 1px solid var(--color-line-strong);
+    border-radius: 0.5rem;
+    background: var(--color-surface);
+    color: var(--color-ink);
+    font-size: 0.875rem;
+    /* The caret ships browser-default; give it the season's red. */
+    caret-color: var(--season-red);
+    transition:
+      border-color 150ms cubic-bezier(0.16, 1, 0.3, 1),
+      box-shadow 150ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .field::placeholder {
+    color: var(--color-ink-faint);
+  }
+
+  .field:hover:not(:disabled) {
+    border-color: #b9ab93;
+  }
+
+  .field:focus {
+    outline: none;
+    border-color: var(--color-ink);
+    box-shadow: 0 0 0 3px rgb(48 48 47 / 0.08);
+  }
+
+  .field:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .field[aria-invalid="true"] {
+    border-color: var(--color-alfa);
+  }
+
+  .field[aria-invalid="true"]:focus {
+    box-shadow: 0 0 0 3px rgb(153 27 27 / 0.1);
+  }
+
+  .label {
+    display: block;
+    font-size: 0.8125rem;
+    font-weight: 550;
+    color: var(--color-ink);
+    margin-bottom: 0.375rem;
+    letter-spacing: -0.01em;
+  }
+
+  .panel {
+    background: var(--color-surface);
+    border: 1px solid var(--color-line);
+    border-radius: 0.75rem;
+    box-shadow:
+      0 1px 2px rgb(0 0 0 / 0.04),
+      0 12px 32px -20px rgb(0 0 0 / 0.25);
+  }
+
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    height: 1.375rem;
+    padding-inline: 0.5rem;
+    border-radius: 9999px;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    border: 1px solid transparent;
+    white-space: nowrap;
+  }
+
+  .chip-hadir {
+    background: var(--color-hadir-soft);
+    color: var(--color-hadir);
+    border-color: var(--color-hadir-line);
+  }
+
+  .chip-izin {
+    background: var(--color-izin-soft);
+    color: var(--color-izin);
+    border-color: var(--color-izin-line);
+  }
+
+  .chip-alfa {
+    background: var(--color-alfa-soft);
+    color: var(--color-alfa);
+    border-color: var(--color-alfa-line);
+  }
+
+  .chip-belum {
+    background: var(--color-belum-soft);
+    color: var(--color-belum);
+    border-color: var(--color-line);
+  }
+
+  .nav-link {
+    display: flex;
+    align-items: center;
+    gap: 0.625rem;
+    padding: 0.5rem 0.625rem;
+    border-radius: 0.5rem;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    color: var(--color-ink-muted);
+    transition:
+      background-color 150ms cubic-bezier(0.16, 1, 0.3, 1),
+      color 150ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .nav-link:hover {
+    background: var(--color-surface);
+    color: var(--color-ink);
+  }
+
+  .nav-link-active,
+  .nav-link-active:hover {
+    background: var(--color-surface);
+    color: var(--color-ink);
+    font-weight: 600;
+    box-shadow: 0 1px 2px rgb(0 0 0 / 0.05);
+  }
+
+  /* Camera overlay chrome: a scrim so the controls read on any feed, frosted
+     pills for the readout, round buttons, and a ruler-style zoom. */
+  .cam-scrim {
+    background: linear-gradient(
+      to top,
+      rgb(0 0 0 / 0.85) 0%,
+      rgb(0 0 0 / 0.7) 55%,
+      rgb(0 0 0 / 0.4) 80%,
+      transparent 100%
+    );
+  }
+
+  /* The pill shape comes from .chip; this only re-tints it for the feed. */
+  .cam-chip {
+    background: rgb(48 48 47 / 0.72);
+    color: var(--color-surface);
+    letter-spacing: 0.04em;
+    -webkit-backdrop-filter: blur(6px);
+    backdrop-filter: blur(6px);
+  }
+
+  /* Round overlay button for flash and camera switch. */
+  .cam-fab {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: none;
+    width: 2.75rem;
+    height: 2.75rem;
+    border-radius: 9999px;
+    background: rgb(48 48 47 / 0.72);
+    color: var(--color-surface);
+    -webkit-backdrop-filter: blur(6px);
+    backdrop-filter: blur(6px);
+    cursor: pointer;
+    transition:
+      background-color 150ms cubic-bezier(0.16, 1, 0.3, 1),
+      color 150ms cubic-bezier(0.16, 1, 0.3, 1),
+      transform 150ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .cam-fab:hover {
+    background: rgb(48 48 47 / 0.88);
+  }
+
+  .cam-fab:active {
+    transform: scale(0.94);
+  }
+
+  /* Lit = the torch is on. Flipping to the light chip states it in colour
+     before you look at the beam. */
+  .cam-fab[aria-pressed="true"] {
+    background: var(--color-surface);
+    color: var(--color-ink);
+  }
+
+  .cam-fab:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  /* The global focus ring is ink-coloured, which is invisible over the feed. */
+  .cam-fab:focus-visible,
+  .zoom-ruler:focus-visible {
+    outline-color: var(--color-surface);
+  }
+
+  /* Ruler zoom: tick marks instead of a solid track, and a line instead of a
+     knob, so the value reads as a position on a scale rather than a blob. */
+  .zoom-ruler {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 100%;
+    min-width: 0;
+    height: 1.5rem;
+    background: transparent;
+    cursor: pointer;
+  }
+
+  .zoom-ruler:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  /* A 1px tick every 9px, drawn in a strip that is centred in the track. */
+  .zoom-ruler::-webkit-slider-runnable-track {
+    height: 1.5rem;
+    background-image: repeating-linear-gradient(
+      to right,
+      rgb(255 255 255 / 0.55) 0 1px,
+      transparent 1px 9px
+    );
+    background-size: 100% 0.5rem;
+    background-position: center;
+    background-repeat: no-repeat;
+  }
+
+  .zoom-ruler::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 2px;
+    height: 1.5rem;
+    /* Thumb and track are the same height, so it needs no offset. */
+    margin-top: 0;
+    border: none;
+    border-radius: 1px;
+    background: var(--color-surface);
+  }
+
+  .zoom-ruler::-moz-range-track {
+    height: 1.5rem;
+    background-image: repeating-linear-gradient(
+      to right,
+      rgb(255 255 255 / 0.55) 0 1px,
+      transparent 1px 9px
+    );
+    background-size: 100% 0.5rem;
+    background-position: center;
+    background-repeat: no-repeat;
+  }
+
+  .zoom-ruler::-moz-range-thumb {
+    width: 2px;
+    height: 1.5rem;
+    border: none;
+    border-radius: 1px;
+    background: var(--color-surface);
+  }
+
+  /* Tap-to-focus marker. Sized and offset in JS so it lands on the tap, and
+     animated once from an already-visible state. */
+  .focus-reticle {
+    position: absolute;
+    width: 4.5rem;
+    height: 4.5rem;
+    /* Centre the box on the tap coordinate. */
+    margin: -2.25rem 0 0 -2.25rem;
+    border: 2px solid rgb(255 255 255 / 0.9);
+    border-radius: 9999px;
+    animation: focus-pulse 700ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
+
+  @keyframes focus-pulse {
+    from {
+      transform: scale(0.55);
+      opacity: 1;
+    }
+    to {
+      transform: scale(1.25);
+      opacity: 0;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .focus-reticle {
+      animation-duration: 1ms;
+    }
+  }
+
+  .th {
+    text-align: left;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--color-ink-faint);
+    padding: 0.625rem 1rem;
+    border-bottom: 1px solid var(--color-line);
+    white-space: nowrap;
+  }
+
+  .td {
+    padding: 0.625rem 1rem;
+    font-size: 0.8125rem;
+    border-bottom: 1px solid var(--color-line);
+    vertical-align: middle;
+  }
+}
+
+@media print {
+  .no-print {
+    display: none !important;
+  }
+
+  body {
+    background: #fff;
+  }
+
+  .panel {
+    box-shadow: none;
+    border-color: transparent;
+  }
 }
